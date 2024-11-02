@@ -8,7 +8,7 @@ let model: tf.LayersModel | null = null
 async function loadModel() {
   if (!model) {
     model = await tf.loadLayersModel(
-      join(process.cwd(), "public", "model", "model.keras")
+      join(process.cwd(), "public", "model", "cyclegan_model.keras")
     )
   }
 
