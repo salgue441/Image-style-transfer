@@ -1,0 +1,9 @@
+# logs
+logs/
+logs/*
+
+# model
+model/
+model/*
+model.keras
+best_model.keras
