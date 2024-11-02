@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { useDropzone } from "react-dropzone"
 import { Upload, X } from "lucide-react"
+import Image from "next/image"
 
 interface ImageUploadingDialogProps {
   onImageUpload: (file: File) => void
@@ -88,11 +89,17 @@ export function ImageUploadDialog({
             <input {...getInputProps()} />
             {preview ? (
               <div className="relative w-full">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="max-h-[300px] mx-auto rounded-lg"
-                />
+                <div className="relative max-h-[300px] mx-auto">
+                  <Image
+                    src={preview}
+                    alt="Preview"
+                    className="rounded-lg"
+                    width={500}
+                    height={300}
+                    style={{ objectFit: "contain" }}
+                  />
+                </div>
+                
                 <Button
                   size="icon"
                   variant="destructive"
