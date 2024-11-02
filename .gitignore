@@ -7,3 +7,7 @@ model/
 model/*
 model.keras
 best_model.keras
+
+# data files
+data/
+data/*
