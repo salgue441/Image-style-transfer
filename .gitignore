@@ -6,6 +6,7 @@ logs/*
 model/
 model/*
 model.keras
+*_model.keras
 best_model.keras
 checkpoints/
 checkpoints/*
