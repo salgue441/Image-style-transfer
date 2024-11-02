@@ -7,6 +7,8 @@ model/
 model/*
 model.keras
 best_model.keras
+checkpoints/
+checkpoints/*
 
 # data files
 data/
