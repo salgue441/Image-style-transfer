@@ -23,6 +23,10 @@ Transform your photos into stunning Monet-style paintings with AI. Built with Ne
 
 The project's documentation is available at [docs](docs)
 
+## Web App
+
+The web app is available at [monet-style-transfer.vercel.app](https://monet-style-transfer.vercel.app) and is hosted on Vercel. Currently, the UI is ready but the style transfer model is not yet integrated.
+
 ## 📄 License
 
 This project is licensed under Apache License 2.0. See the [LICENSE](LICENSE) file for more information.
