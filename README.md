@@ -25,7 +25,7 @@ The project's documentation is available at [docs](docs)
 
 ## Web App
 
-The web app is available at [monet-style-transfer.vercel.app](https://monet-style-transfer.vercel.app) and is hosted on Vercel. Currently, the UI is ready but the style transfer model is not yet integrated.
+The web app is available at [monet-style-transfer.vercel.app](https://image-style-transfer-amber.vercel.app/) and is hosted on Vercel. Currently, the UI is ready but the style transfer model is not yet integrated.
 
 ## 📄 License
 
