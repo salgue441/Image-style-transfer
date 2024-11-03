@@ -1,7 +1,8 @@
 import tensorflow as tf
-from src.config import ModelConfig
-from .generator import Generator
-from .discriminator import Discriminator
+from config import ModelConfig
+from models.generator import Generator
+from models.discriminator import Discriminator
+
 
 class CycleGAN(tf.keras.Model):
     def __init__(self, config: ModelConfig, **kwargs):

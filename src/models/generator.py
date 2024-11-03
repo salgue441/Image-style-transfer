@@ -1,5 +1,6 @@
 import tensorflow as tf
-from .blocks import DownsampleBlock, UpsampleBlock
+from models.blocks import DownsampleBlock, UpsampleBlock
+
 
 class Generator(tf.keras.Model):
     def __init__(self, config, name="generator", **kwargs):

@@ -1,5 +1,6 @@
 import tensorflow as tf
-from .blocks import DownsampleBlock
+from models.blocks import DownsampleBlock
+
 
 class Discriminator(tf.keras.Model):
     def __init__(self, config, name="discriminator", **kwargs):
@@ -20,11 +21,11 @@ class Discriminator(tf.keras.Model):
             kernel_initializer=tf.keras.initializers.RandomNormal(0.0, 0.02),
             use_bias=False,
         )
-        
+
         self.batch_norm = tf.keras.layers.BatchNormalization(
             gamma_initializer=tf.keras.initializers.RandomNormal(0.0, 0.02)
         )
-        
+
         self.leaky_relu = tf.keras.layers.LeakyReLU(0.2)
         self.zero_pad2 = tf.keras.layers.ZeroPadding2D()
         self.final_conv = tf.keras.layers.Conv2D(
