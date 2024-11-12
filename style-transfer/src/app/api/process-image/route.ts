@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
-import * as tf from "@tensorflow/tfjs"
-import { join } from "path"
-import { writeFile } from "fs/promises"
-import crypto from "crypto"
 import { processImage } from "@/lib/process-image"
+import { writeFile } from "fs/promises"
+import { join } from "path"
+import * as tf from "@tensorflow/tfjs-node"
+import fs from "fs/promises"
 
+// Initialize TensorFlow
 await tf.ready()
 
 export async function POST(request: Request) {
@@ -19,21 +20,32 @@ export async function POST(request: Request) {
       )
     }
 
+    // Validate file size (e.g., 10MB limit)
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json({ error: "Image is too large" }, { status: 400 })
     }
 
-    const fileName = `${crypto.randomUUID()}-${file.name}`
-    const uploadPath = join(process.cwd(), "public/uploads", fileName)
+    // Save uploaded file temporarily
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
 
-    const arrayBuffer = await file.arrayBuffer()
-    await writeFile(uploadPath, Buffer.from(arrayBuffer))
+    const tempFileName = `upload-${crypto.randomUUID()}-${file.name}`
+    const tempPath = join(process.cwd(), "public", "uploads", tempFileName)
 
-    const stylizedImage = await processImage(uploadPath)
-    return NextResponse.json({ stylizedImageUrl: `/uploads/${stylizedImage}` })
+    await writeFile(tempPath, buffer)
+
+    // Process the image
+    const stylizedImage = await processImage(tempPath)
+
+    // Clean up temp file
+    await fs.unlink(tempPath).catch(console.error)
+
+    return NextResponse.json({
+      success: true,
+      stylizedImageUrl: `/uploads/${stylizedImage}`,
+    })
   } catch (error) {
-    console.error("Error processing image", error)
-
+    console.error("Error processing image:", error)
     return NextResponse.json(
       { error: "Failed to process image" },
       { status: 500 }
