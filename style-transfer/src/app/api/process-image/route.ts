@@ -28,7 +28,7 @@ async function loadAndPreprocessImage(buffer: Buffer) {
 
 async function postprocessImage(tensor: tf.Tensor3D) {
   const denormalized = tensor.mul(255).clipByValue(0, 255)
-  const arrayData = await denormalized.array()
+  const arrayData = (await denormalized.array()) as number[][][]
   const uint8Data = new Uint8Array(
     arrayData.flat(2).map((val) => Math.round(val))
   )
@@ -75,14 +75,18 @@ export async function POST(request: Request) {
     console.log("Loading model from:", modelPath)
     const model = await tf.loadGraphModel(modelPath)
 
-    const outputTensor = await model.predict(inputTensor.expandDims(0))
-    const processedImageBuffer = await postprocessImage(outputTensor.squeeze())
+    const outputTensor = model.predict(inputTensor.expandDims(0)) as tf.Tensor4D
+    const squeezedTensor = outputTensor.squeeze() as tf.Tensor3D
+    const processedImageBuffer = await postprocessImage(squeezedTensor)
+
     const fileName = `stylized-${crypto.randomUUID()}.png`
     const filePath = join(uploadsDir, fileName)
     await writeFile(filePath, processedImageBuffer)
 
+    // Clean up tensors
     inputTensor.dispose()
     outputTensor.dispose()
+    squeezedTensor.dispose()
 
     return NextResponse.json({
       success: true,
@@ -90,7 +94,8 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error processing image:", error)
-    console.error("Stack trace:", error.stack)
+    console.error("Stack trace:", (error as Error).stack)
+
     return NextResponse.json(
       { error: "Failed to process image" },
       { status: 500 }
