@@ -13,34 +13,26 @@ export const config = {
 }
 
 async function loadAndPreprocessImage(buffer: Buffer) {
-  // Use sharp to preprocess the image
   const image = sharp(buffer)
-
-  // Resize to match model input size
   const resized = await image
     .resize(256, 256, { fit: "contain" })
     .raw()
     .toBuffer({ resolveWithObject: true })
 
-  // Convert to tensor
   const tensor = tf
     .tensor3d(new Float32Array(resized.data), [256, 256, 3])
-    .div(255.0) // Normalize to [0,1]
+    .div(255.0)
 
   return tensor
 }
 
 async function postprocessImage(tensor: tf.Tensor3D) {
-  // Denormalize to [0,255]
   const denormalized = tensor.mul(255).clipByValue(0, 255)
   const arrayData = await denormalized.array()
-
-  // Convert to uint8 buffer
   const uint8Data = new Uint8Array(
     arrayData.flat(2).map((val) => Math.round(val))
   )
 
-  // Use sharp to create PNG
   return sharp(uint8Data, {
     raw: {
       width: 256,
@@ -54,7 +46,6 @@ async function postprocessImage(tensor: tf.Tensor3D) {
 
 export async function POST(request: Request) {
   try {
-    // Ensure uploads directory exists
     const uploadsDir = join(process.cwd(), "public", "uploads")
     await mkdir(uploadsDir, { recursive: true }).catch(() => {})
 
@@ -72,14 +63,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Image is too large" }, { status: 400 })
     }
 
-    // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-
-    // Load and preprocess image
     const inputTensor = await loadAndPreprocessImage(buffer)
-
-    // Load model - use absolute path
     const modelPath = `file://${join(
       process.cwd(),
       "public",
@@ -89,20 +75,12 @@ export async function POST(request: Request) {
     console.log("Loading model from:", modelPath)
     const model = await tf.loadGraphModel(modelPath)
 
-    // Run inference
     const outputTensor = await model.predict(inputTensor.expandDims(0))
-
-    // Post-process result
     const processedImageBuffer = await postprocessImage(outputTensor.squeeze())
-
-    // Generate filename
     const fileName = `stylized-${crypto.randomUUID()}.png`
-
-    // Store processed image
     const filePath = join(uploadsDir, fileName)
     await writeFile(filePath, processedImageBuffer)
 
-    // Clean up tensors
     inputTensor.dispose()
     outputTensor.dispose()
 
@@ -112,7 +90,7 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error processing image:", error)
-    console.error("Stack trace:", error.stack) // Added for better debugging
+    console.error("Stack trace:", error.stack)
     return NextResponse.json(
       { error: "Failed to process image" },
       { status: 500 }
