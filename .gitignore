@@ -14,3 +14,6 @@ checkpoints/*
 # data files
 data/
 data/*
+
+# RSA keys
+*.pem
