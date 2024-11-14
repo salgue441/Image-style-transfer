@@ -58,21 +58,9 @@ export function StyleTransfer() {
 
       const data = await response.json()
 
-      // Set both original and stylized images from S3 URLs
       setOriginalImage(data.originalUrl)
       setStylizedImage(data.processedUrl)
       setProgress(100)
-
-      // Add to history
-      setImageHistory((prev) =>
-        [
-          {
-            original: data.originalUrl,
-            processed: data.processedUrl,
-          },
-          ...prev,
-        ].slice(0, 8)
-      ) // Keep last 8 transformations
 
       toast({
         title: "Success",
@@ -134,7 +122,6 @@ export function StyleTransfer() {
           <p className="text-muted-foreground text-center max-w-xl">
             Transform your photos into Monet&apos;s style paintings using AI
           </p>
-          {/* Rest of the code remains the same */}
         </div>
       </div>
 

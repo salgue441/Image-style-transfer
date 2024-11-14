@@ -99,7 +99,7 @@ export function ImageUploadDialog({
                     style={{ objectFit: "contain" }}
                   />
                 </div>
-                
+
                 <Button
                   size="icon"
                   variant="destructive"
@@ -119,9 +119,6 @@ export function ImageUploadDialog({
                 <div className="space-y-2">
                   <p className="font-medium">
                     Drop your image here or click to browse
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Maximum file size: 10MB
                   </p>
                 </div>
               </div>

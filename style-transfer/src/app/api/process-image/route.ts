@@ -50,13 +50,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No image uploaded" }, { status: 400 })
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "Image size should be less than 10MB" },
-        { status: 400 }
-      )
-    }
-
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const processedBuffer = await processImage(buffer)
