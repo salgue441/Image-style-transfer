@@ -10,6 +10,9 @@ model.keras
 best_model.keras
 checkpoints/
 checkpoints/*
+*.h5
+*.hdf5
+monet_generator/*
 
 # data files
 data/

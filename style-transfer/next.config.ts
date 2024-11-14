@@ -5,31 +5,32 @@ const nextConfig: NextConfig = {
     dirs: ["app"],
   },
   webpack: (config, { isServer }) => {
-    // Add node-loader
     config.module.rules.push({
       test: /\.node$/,
       loader: "node-loader",
     })
 
-    // Exclude problematic packages from webpack
-    config.externals = [
-      ...(config.externals || []),
-      {
-        "@mapbox/node-pre-gyp": "commonjs @mapbox/node-pre-gyp",
-        canvas: "commonjs canvas",
-        "@tensorflow/tfjs-node": "commonjs @tensorflow/tfjs-node",
-      },
-    ]
-
     if (!isServer) {
-      // Don't bundle these packages on the client side
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         path: false,
         crypto: false,
+        "detect-libc": false,
+        sharp: false,
+        canvas: false,
       }
     }
+
+    config.externals = [
+      ...(config.externals || []),
+      {
+        sharp: "commonjs sharp",
+        canvas: "commonjs canvas",
+        "@mapbox/node-pre-gyp": "commonjs @mapbox/node-pre-gyp",
+        "@tensorflow/tfjs-node": "commonjs @tensorflow/tfjs-node",
+      },
+    ]
 
     return config
   },

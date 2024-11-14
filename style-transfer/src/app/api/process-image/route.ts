@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server"
-import * as tf from "@tensorflow/tfjs-node" // Changed to tfjs-node
-import sharp from "sharp"
-import { writeFile } from "fs/promises"
+import { writeFile, mkdir } from "fs/promises"
 import { join } from "path"
-import { mkdir } from "fs/promises"
+import sharp from "sharp"
+import dotenv from "dotenv"
+import axios from "axios"
+import FormData from "form-data"
+
+dotenv.config()
 
 export const config = {
   api: {
@@ -12,36 +15,9 @@ export const config = {
   },
 }
 
-async function loadAndPreprocessImage(buffer: Buffer) {
+async function processImage(buffer: Buffer) {
   const image = sharp(buffer)
-  const resized = await image
-    .resize(256, 256, { fit: "contain" })
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-
-  const tensor = tf
-    .tensor3d(new Float32Array(resized.data), [256, 256, 3])
-    .div(255.0)
-
-  return tensor
-}
-
-async function postprocessImage(tensor: tf.Tensor3D) {
-  const denormalized = tensor.mul(255).clipByValue(0, 255)
-  const arrayData = (await denormalized.array()) as number[][][]
-  const uint8Data = new Uint8Array(
-    arrayData.flat(2).map((val) => Math.round(val))
-  )
-
-  return sharp(uint8Data, {
-    raw: {
-      width: 256,
-      height: 256,
-      channels: 3,
-    },
-  })
-    .png()
-    .toBuffer()
+  return image.resize(256, 256, { fit: "contain" }).toBuffer()
 }
 
 export async function POST(request: Request) {
@@ -50,43 +26,43 @@ export async function POST(request: Request) {
     await mkdir(uploadsDir, { recursive: true }).catch(() => {})
 
     const data = await request.formData()
-    const file: File | null = data.get("image") as unknown as File
+    const file: File | null = data.get("image") as File
 
     if (!file) {
+      return NextResponse.json({ error: "No image uploaded" }, { status: 400 })
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "No image found in request" },
+        { error: "Image size should be less than 10MB" },
         { status: 400 }
       )
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "Image is too large" }, { status: 400 })
-    }
-
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    const inputTensor = await loadAndPreprocessImage(buffer)
-    const modelPath = `file://${join(
-      process.cwd(),
-      "public",
-      "models",
-      "model.json"
-    )}`
-    console.log("Loading model from:", modelPath)
-    const model = await tf.loadGraphModel(modelPath)
+    const processedBuffer = await processImage(buffer)
 
-    const outputTensor = model.predict(inputTensor.expandDims(0)) as tf.Tensor4D
-    const squeezedTensor = outputTensor.squeeze() as tf.Tensor3D
-    const processedImageBuffer = await postprocessImage(squeezedTensor)
+    const formData = new FormData()
+    formData.append("file", processedBuffer, {
+      filename: file.name,
+      contentType: "image/jpeg",
+    })
 
-    const fileName = `stylized-${crypto.randomUUID()}.png`
+    const url = `http://${process.env.AWS_EC2_PUBLIC_IP}:8000/transform`
+    console.log("Sending request to:", url)
+
+    const response = await axios.post(url, formData, {
+      headers: {
+        ...formData.getHeaders(),
+      },
+      responseType: "arraybuffer",
+      timeout: 30000,
+    })
+
+    const fileName = `stylized-${crypto.randomUUID()}.jpg`
     const filePath = join(uploadsDir, fileName)
-    await writeFile(filePath, processedImageBuffer)
-
-    // Clean up tensors
-    inputTensor.dispose()
-    outputTensor.dispose()
-    squeezedTensor.dispose()
+    await writeFile(filePath, Buffer.from(response.data))
 
     return NextResponse.json({
       success: true,
@@ -94,10 +70,31 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error processing image:", error)
-    console.error("Stack trace:", (error as Error).stack)
+    let errorMessage = "Unknown error"
+
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error("Response data:", error.response.data)
+        console.error("Response status:", error.response.status)
+        console.error("Response headers:", error.response.headers)
+
+        const responseData = error.response.data
+        if (Buffer.isBuffer(responseData)) {
+          errorMessage = responseData.toString("utf-8")
+        } else {
+          errorMessage = JSON.stringify(responseData)
+        }
+      } else if (error.request) {
+        console.error("No response received:", error.request)
+        errorMessage = "No response received from server"
+      } else {
+        console.error("Error setting up request:", error.message)
+        errorMessage = error.message
+      }
+    }
 
     return NextResponse.json(
-      { error: "Failed to process image" },
+      { error: `Failed to process image: ${errorMessage}` },
       { status: 500 }
     )
   }
