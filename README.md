@@ -42,7 +42,7 @@ Transform your photos into stunning Monet-style paintings using the power of dee
 
 ## 📚 Documentation
 
-The project's documentation is available at docs.
+The project's documentation is available at [docs](docs).
 
 ## 🌐 Web App
 
