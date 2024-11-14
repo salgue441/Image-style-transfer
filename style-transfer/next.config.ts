@@ -4,6 +4,16 @@ const nextConfig: NextConfig = {
   eslint: {
     dirs: ["app"],
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.s3.*.amazonaws.com",
+        port: "",
+        pathname: "/**",
+      },
+    ],
+  },
   webpack: (config, { isServer }) => {
     config.module.rules.push({
       test: /\.node$/,

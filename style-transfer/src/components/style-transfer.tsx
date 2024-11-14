@@ -28,12 +28,13 @@ export function StyleTransfer() {
   const [stylizedImage, setStylizedImage] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [imageHistory, setImageHistory] = useState<string[]>([])
+  const [imageHistory, setImageHistory] = useState<
+    { original: string; processed: string }[]
+  >([])
 
   const handleImageUpload = async (file: File) => {
     setIsProcessing(true)
     setProgress(0)
-    setOriginalImage(URL.createObjectURL(file))
 
     const formData = new FormData()
     formData.append("image", file)
@@ -51,30 +52,43 @@ export function StyleTransfer() {
       clearInterval(progressInterval)
 
       if (!response.ok) {
-        throw new Error("Failed to process image")
+        const errorData = await response.json()
+        throw new Error(errorData.details || "Failed to process image")
       }
 
       const data = await response.json()
-      setStylizedImage(data.stylizedImageUrl)
+
+      // Set both original and stylized images from S3 URLs
+      setOriginalImage(data.originalUrl)
+      setStylizedImage(data.processedUrl)
       setProgress(100)
+
+      // Add to history
+      setImageHistory((prev) =>
+        [
+          {
+            original: data.originalUrl,
+            processed: data.processedUrl,
+          },
+          ...prev,
+        ].slice(0, 8)
+      ) // Keep last 8 transformations
 
       toast({
         title: "Success",
         description: "Your image has been successfully stylized",
       })
-    } catch {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to process image. Please try again",
+        description:
+          error instanceof Error ? error.message : "Failed to process image",
       })
+
+      console.error("Failed to process image", error)
     } finally {
       setIsProcessing(false)
-    }
-
-    // Add to history after successful processing
-    if (stylizedImage) {
-      setImageHistory((prev) => [...prev, stylizedImage])
     }
   }
 
@@ -240,24 +254,6 @@ export function StyleTransfer() {
           )}
         </Card>
       </div>
-
-      {imageHistory.length > 0 && (
-        <div className="mt-12 max-w-6xl mx-auto">
-          <h2 className="text-2xl font-bold mb-4">Recent Transformations</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {imageHistory.map((img, index) => (
-              <div key={index} className="relative h-40">
-                <Image
-                  src={img}
-                  alt={`Previous transformation ${index + 1}`}
-                  fill
-                  className="object-cover rounded-lg"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </main>
   )
 }
