@@ -13,6 +13,10 @@ checkpoints/*
 *.h5
 *.hdf5
 monet_generator/*
+monet_generator/saved_models/*.pb
+*.pb
+*.index
+*.data-*
 
 # data files
 data/
