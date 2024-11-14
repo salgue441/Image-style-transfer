@@ -11,7 +11,7 @@ Transform your photos into stunning Monet-style paintings using the power of dee
 - 🖼️ Real-time photo to Monet style conversion
 - 🚀 Modern, responsive UI using shadcn/ui components
 - 📱 Works seamlessly on desktop and mobile devices
-- ⚡ Powered by TensorFlow.js for efficient in-browser ML
+- ⚡ Powered by TensorFlow for model creation and training
 - 🎯 High-quality style transfer that captures the essence of Monet's brushstroke
 - ☁️ Hosted on AWS with EC2 and S3 Bucket
 - 🐳 Containerized with Docker for easy deployment
