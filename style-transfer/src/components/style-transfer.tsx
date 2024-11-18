@@ -21,42 +21,93 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import Image from "next/image"
+import { default as NextImage } from "next/image"
+
+interface ProcessRepsonse {
+  success: boolean
+  originalUrl: string
+  processedUrl: string
+  error?: string
+  details?: string
+}
 
 export function StyleTransfer() {
   const [originalImage, setOriginalImage] = useState<string | null>(null)
   const [stylizedImage, setStylizedImage] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [imageHistory, setImageHistory] = useState<
-    { original: string; processed: string }[]
-  >([])
+  const [error, setError] = useState<string | null>(null)
+
+  const processImage = async (formData: FormData): Promise<ProcessRepsonse> => {
+    const response = await fetch("/api/process-image", {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(
+        errorData.details || `HTTP error! status: ${response.status}`
+      )
+    }
+
+    return response.json()
+  }
+
+  const preloadImage = (src: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+
+      img.onload = () => resolve()
+      img.onerror = reject
+      img.src = src
+    })
+  }
 
   const handleImageUpload = async (file: File) => {
     setIsProcessing(true)
     setProgress(0)
+    setError(null)
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Image size should be less than 10MB",
+      })
+
+      setIsProcessing(false)
+      return
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png"]
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please upload a JPEG, PNG, or WebP image",
+      })
+      setIsProcessing(false)
+      return
+    }
 
     const formData = new FormData()
     formData.append("image", file)
 
+    let progressInterval: NodeJS.Timeout | null = null
     try {
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 10, 90))
+      progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 90) return 90
+          return prev + Math.random() * 10
+        })
       }, 500)
 
-      const response = await fetch("/api/process-image", {
-        method: "POST",
-        body: formData,
-      })
-
-      clearInterval(progressInterval)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || "Failed to process image")
-      }
-
-      const data = await response.json()
+      const data = await processImage(formData)
+      await Promise.all([
+        preloadImage(data.originalUrl),
+        preloadImage(data.processedUrl),
+      ])
 
       setOriginalImage(data.originalUrl)
       setStylizedImage(data.processedUrl)
@@ -67,14 +118,65 @@ export function StyleTransfer() {
         description: "Your image has been successfully stylized",
       })
     } catch (error) {
+      console.error(error)
+
+      setError(
+        error instanceof Error ? error.message : "Failed to process image"
+      )
+
       toast({
         variant: "destructive",
         title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to process image",
+        description: "Failed to process image",
       })
 
-      console.error("Failed to process image", error)
+      console.error("Error processing image", error)
+    } finally {
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+
+      setIsProcessing(false)
+    }
+  }
+
+  const handleDownload = async () => {
+    if (!stylizedImage) return
+
+    setIsProcessing(true)
+
+    try {
+      const response = await fetch(stylizedImage)
+      if (!response.ok) {
+        throw new Error("Failed to download image")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+
+      a.href = url
+      a.download = `monet-style-${Date.now()}.jpg`
+      document.body.appendChild(a)
+      a.click()
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 100)
+
+      toast({
+        title: "Success",
+        description: "Image downloaded successfully",
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to download image",
+      })
+
+      console.error("Download error:", error)
     } finally {
       setIsProcessing(false)
     }
@@ -84,34 +186,7 @@ export function StyleTransfer() {
     setOriginalImage(null)
     setStylizedImage(null)
     setProgress(0)
-  }
-
-  const handleDownload = async () => {
-    if (stylizedImage) {
-      try {
-        const response = await fetch(stylizedImage)
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = "monet-style-transfer.jpg"
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-
-        toast({
-          title: "Success",
-          description: "Image downloaded successfully",
-        })
-      } catch {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to download image",
-        })
-      }
-    }
+    setError(null)
   }
 
   return (
@@ -142,7 +217,7 @@ export function StyleTransfer() {
               {originalImage ? (
                 <>
                   <div className="relative w-full h-[300px]">
-                    <Image
+                    <NextImage
                       src={originalImage}
                       alt="Original"
                       fill
@@ -202,7 +277,7 @@ export function StyleTransfer() {
               ) : stylizedImage ? (
                 <>
                   <div className="relative w-full h-[300px]">
-                    <Image
+                    <NextImage
                       src={stylizedImage}
                       alt="Stylized"
                       fill

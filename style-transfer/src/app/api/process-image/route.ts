@@ -115,13 +115,58 @@ async function sendToEC2(buffer: Buffer, filename: string): Promise<Buffer> {
     contentType: "image/jpeg",
   })
 
-  const url = `http://${env.AWS_EC2_PUBLIC_IP}:8000/transform`
-  const response = await apiClient.post(url, formData, {
-    headers: { ...formData.getHeaders() },
-    responseType: "arraybuffer",
+  const url = `http://${env.AWS_EC2_PUBLIC_IP}:8000/transform/`
+
+  console.log("Sending request to EC2:", {
+    url,
+    bufferSize: buffer.length,
+    filename,
+    contentType: "image/jpeg",
   })
 
-  return Buffer.from(response.data)
+  try {
+    const response = await apiClient.post(url, formData, {
+      headers: {
+        ...formData.getHeaders(),
+        Accept: "image/jpeg",
+      },
+      responseType: "arraybuffer",
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      validateStatus: (status) => status === 200,
+    })
+
+    console.log("EC2 Response received:", {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      dataLength: response.data?.length || 0,
+      contentType: response.headers["content-type"],
+    })
+
+    if (!response.data || response.data.length === 0) {
+      throw new Error("EC2 returned empty response")
+    }
+
+    const responseBuffer = Buffer.from(response.data)
+    console.log("Response buffer created:", {
+      size: responseBuffer.length,
+      isBuffer: Buffer.isBuffer(responseBuffer),
+    })
+
+    return responseBuffer
+  } catch (error: any) {
+    console.error("EC2 request failed:", {
+      message: error.message,
+      code: error.code,
+      responseStatus: error.response?.status,
+      responseStatusText: error.response?.statusText,
+      responseData: error.response?.data,
+      responseHeaders: error.response?.headers,
+      isAxiosError: axios.isAxiosError(error),
+    })
+    throw error
+  }
 }
 
 export async function POST(request: Request) {
@@ -130,25 +175,62 @@ export async function POST(request: Request) {
     const file = data.get("image") as File
 
     if (!file) {
+      console.log("No file provided in request")
       return NextResponse.json({ error: "No image uploaded" }, { status: 400 })
     }
 
-    const originalBuffer = Buffer.from(await file.arrayBuffer())
-    const processedBuffer = await processImage(originalBuffer)
+    console.log("File received:", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    })
 
-    const transformedBuffer = await sendToEC2(processedBuffer, file.name)
-    const urls = await uploadImages(
-      originalBuffer,
-      transformedBuffer,
-      file.name
-    )
+    try {
+      const originalBuffer = Buffer.from(await file.arrayBuffer())
+      console.log("Original buffer created, size:", originalBuffer.length)
 
-    return NextResponse.json({ success: true, ...urls })
-  } catch (error) {
-    console.error("Error processing image", error)
+      const processedBuffer = await processImage(originalBuffer)
+      console.log("Image processed, size:", processedBuffer.length)
+
+      try {
+        const transformedBuffer = await sendToEC2(processedBuffer, file.name)
+        console.log(
+          "EC2 transformation complete, size:",
+          transformedBuffer.length
+        )
+
+        const urls = await uploadImages(
+          originalBuffer,
+          transformedBuffer,
+          file.name
+        )
+        console.log("Images uploaded successfully:", urls)
+
+        return NextResponse.json({ success: true, ...urls })
+      } catch (ec2Error: any) {
+        console.error("EC2 or Upload error:", {
+          message: ec2Error.message,
+          code: ec2Error.code,
+          response: ec2Error.response?.data,
+          status: ec2Error.response?.status,
+        })
+        throw ec2Error
+      }
+    } catch (processingError) {
+      console.error("Processing error:", processingError)
+      throw processingError
+    }
+  } catch (error: any) {
+    console.error("Error processing image", {
+      error: error,
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    })
 
     if (axios.isAxiosError(error)) {
       const errorDetails = handleAxiosError(error)
+      console.log("Axios error details:", errorDetails)
       return NextResponse.json(errorDetails.body, {
         status: errorDetails.status,
       })
@@ -157,7 +239,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "Failed to process image",
-        details: "Unkown error occurred",
+        details: error.message || "Unknown error occurred",
         requestId: crypto.randomUUID(),
       },
       { status: 500 }
